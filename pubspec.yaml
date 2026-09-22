@@ -22,3 +22,10 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  dependencies:
+  flutter:
+    sdk: flutter
+  sqflite: ^2.3.0
+  path: ^1.8.3
+  excel: ^4.0.3
+  permission_handler: ^11.3.1
