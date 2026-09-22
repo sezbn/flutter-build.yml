@@ -9,7 +9,7 @@ import 'package:path/path.dart' as p;
 const List<String> ORDRE_INSTALLATION = ["4", "3", "2", "1"];
 
 const String MDP_PARAM_SIEGES = "123456";
-const String MDP_CORRECTION_CHARIOT = "123456";
+const String MDP_CORRECTION_CHARIOT = "";
 
 const Color NAVY = Color(0xFF0F2159);
 const Color BLEU_LABEL = Color(0xFF0D3380);
