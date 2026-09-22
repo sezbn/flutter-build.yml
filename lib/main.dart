@@ -141,8 +141,11 @@ class DatabaseHelper {
     );
   }
 
+  // RECHERCHE UNIFIÉE ET GLOBALE
   static Future<String?> lookupReference(String codeSiege, String? tableNumero) async {
     final db = await database;
+
+    // 1. Recherche exacte sur la table sélectionnée si spécifiée
     if (tableNumero != null) {
       final res = await db.query(
         'references_table',
@@ -151,25 +154,20 @@ class DatabaseHelper {
         whereArgs: [tableNumero, codeSiege],
       );
       if (res.isNotEmpty) return res.first['reference'] as String;
-
-      final allTable = await db.query(
-        'references_table',
-        where: 'table_numero = ?',
-        whereArgs: [tableNumero],
-      );
-      return _matchPrefix(allTable, codeSiege);
-    } else {
-      final res = await db.query(
-        'references_table',
-        columns: ['reference'],
-        where: 'code_siege = ?',
-        whereArgs: [codeSiege],
-      );
-      if (res.isNotEmpty) return res.first['reference'] as String;
-
-      final all = await db.query('references_table');
-      return _matchPrefix(all, codeSiege);
     }
+
+    // 2. Recherche exacte sur TOUTES les tables (recherche globale)
+    final resGlobal = await db.query(
+      'references_table',
+      columns: ['reference'],
+      where: 'code_siege = ?',
+      whereArgs: [codeSiege],
+    );
+    if (resGlobal.isNotEmpty) return resGlobal.first['reference'] as String;
+
+    // 3. Fallback : Correspondance par préfixe globale
+    final all = await db.query('references_table');
+    return _matchPrefix(all, codeSiege);
   }
 
   static String? _matchPrefix(List<Map<String, dynamic>> rows, String codeSiege) {
@@ -309,9 +307,10 @@ class _ScanScreenState extends State<ScanScreen> {
       _borderStatus = {};
     });
   }
-void _focusInput() {
+
+  void _focusInput() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Sayfa aktif değilse odağı ana ekrana zorlama
+      // Si la page principale n'est pas active, on ne capture pas le focus
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
 
       if (!_focusNode.hasFocus) {
@@ -319,7 +318,6 @@ void _focusInput() {
       }
     });
   }
-
 
   void _afficherErreur(String message) {
     showDialog(
@@ -820,13 +818,18 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
             ? Column(
                 children: [
                   const Text("Accès protégé par mot de passe."),
-                  TextField(controller: _pwdCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Mot de passe")),
+                  TextField(
+                    controller: _pwdCtrl,
+                    autofocus: true,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: "Mot de passe"),
+                  ),
                   const SizedBox(height: 10),
                   ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
                 ],
               )
             : Column(
-               crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Dernier numéro de chariot enregistré : ${_dernierCode ?? '—'}", style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 15),
@@ -903,9 +906,12 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
             ? Column(
                 children: [
                   const Text("Accès protégé par mot de passe."),
-                  TextField(controller: _pwdCtrl,
-                  autofocus: true,
-                  obscureText: true, decoration: const InputDecoration(labelText: "Mot de passe")),
+                  TextField(
+                    controller: _pwdCtrl,
+                    autofocus: true,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: "Mot de passe"),
+                  ),
                   const SizedBox(height: 10),
                   ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
                 ],
