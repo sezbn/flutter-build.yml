@@ -145,7 +145,7 @@ class DatabaseHelper {
   static Future<String?> lookupReference(String codeSiege, String? tableNumero) async {
     final db = await database;
 
-    // 1. Recherche exacte sur la table sélectionnée si spécifiée
+    // 1. Recherche exacte sur la table sélectionnée
     if (tableNumero != null) {
       final res = await db.query(
         'references_table',
@@ -156,7 +156,7 @@ class DatabaseHelper {
       if (res.isNotEmpty) return res.first['reference'] as String;
     }
 
-    // 2. Recherche exacte sur TOUTES les tables (recherche globale)
+    // 2. Recherche exacte globale
     final resGlobal = await db.query(
       'references_table',
       columns: ['reference'],
@@ -165,7 +165,7 @@ class DatabaseHelper {
     );
     if (resGlobal.isNotEmpty) return resGlobal.first['reference'] as String;
 
-    // 3. Fallback : Correspondance par préfixe globale
+    // 3. Fallback : Correspondance par préfixe
     final all = await db.query('references_table');
     return _matchPrefix(all, codeSiege);
   }
@@ -260,6 +260,7 @@ class ConformiteApp extends StatelessWidget {
         '/historique': (context) => const HistoryScreen(),
         '/config_chariot': (context) => const ConfigChariotScreen(),
         '/config_sieges': (context) => const ConfigSiegesScreen(),
+        '/config_table': (context) => const ConfigTableScreen(),
       },
     );
   }
@@ -310,7 +311,6 @@ class _ScanScreenState extends State<ScanScreen> {
 
   void _focusInput() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Si la page principale n'est pas active, on ne capture pas le focus
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
 
       if (!_focusNode.hasFocus) {
@@ -349,7 +349,6 @@ class _ScanScreenState extends State<ScanScreen> {
     _focusInput();
   }
 
-  // --- TRAITEMENT DU SCAN ---
   void _onScanValide(String raw) async {
     _controller.clear();
     _focusInput();
@@ -368,7 +367,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _traiterScanTable(String raw) async {
     bool existe = await DatabaseHelper.tableExiste(raw);
     if (!existe) {
-      _afficherErreur("Table inconnue : $raw\nCréez-la d'abord dans Code Siège (menu).");
+      _afficherErreur("Table inconnue : $raw\nCréez-la d'abord dans CODE TABLE (menu).");
       return;
     }
     setState(() {
@@ -385,7 +384,6 @@ class _ScanScreenState extends State<ScanScreen> {
       );
     }
 
-    // Parsing du chariot
     List<String> parts = raw.split(';').where((p) => p.isNotEmpty).toList();
     if (parts.length < 4) {
       _afficherErreur("QR chariot mal formé (structure inattendue).");
@@ -414,7 +412,6 @@ class _ScanScreenState extends State<ScanScreen> {
       return;
     }
 
-    // Vérification de la séquence
     int nouveau = int.parse(codeBase);
     int? dernier = await DatabaseHelper.getDernierCodeBase();
 
@@ -570,13 +567,13 @@ class _ScanScreenState extends State<ScanScreen> {
               const PopupMenuItem(value: '/historique', child: Text('Historique')),
               const PopupMenuItem(value: '/config_chariot', child: Text('Correction N° Chariot')),
               const PopupMenuItem(value: '/config_sieges', child: Text('Code Siège')),
+              const PopupMenuItem(value: '/config_table', child: Text('CODE TABLE')),
             ],
           )
         ],
       ),
       body: Column(
         children: [
-          // En-tête : Table n° / Chariot n°
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -587,16 +584,12 @@ class _ScanScreenState extends State<ScanScreen> {
               ],
             ),
           ),
-
-          // Lignes des positions (1, 2, 3, 4)
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               children: ["1", "2", "3", "4"].map((p) => _buildLignePosition(p)).toList(),
             ),
           ),
-
-          // État / Instruction
           Container(
             height: 90,
             alignment: Alignment.center,
@@ -606,8 +599,6 @@ class _ScanScreenState extends State<ScanScreen> {
               style: const TextStyle(fontSize: 15, color: Colors.grey, fontWeight: FontWeight.w500),
             ),
           ),
-
-          // Champ de scan + Réinitialiser
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
@@ -848,7 +839,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CODE SIÈGE
+// ÉCRAN CODE SIÈGE (Gestion pure des correspondances Sièges)
 // ----------------------------------------------------------------------
 class ConfigSiegesScreen extends StatefulWidget {
   const ConfigSiegesScreen({super.key});
@@ -860,7 +851,6 @@ class ConfigSiegesScreen extends StatefulWidget {
 class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   bool _deverrouille = false;
   final TextEditingController _pwdCtrl = TextEditingController();
-  final TextEditingController _newTableCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
   final TextEditingController _refCtrl = TextEditingController();
 
@@ -918,22 +908,8 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
               )
             : ListView(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: TextField(controller: _newTableCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Numéro de table"))),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (_newTableCtrl.text.isNotEmpty) {
-                            await DatabaseHelper.ajouterTable(_newTableCtrl.text);
-                            _newTableCtrl.clear();
-                            _rafraichirTables();
-                          }
-                        },
-                        child: const Text("Créer table"),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                  const Text("Sélectionner la table à modifier :", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: _tables.map((num) {
@@ -948,9 +924,9 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
                       );
                     }).toList(),
                   ),
-                  const Divider(),
+                  const Divider(height: 30),
                   if (_tableSelectionee != null) ...[
-                    Text("Correspondances de la table $_tableSelectionee :", style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text("Correspondances pour la Table $_tableSelectionee :", style: const TextStyle(fontWeight: FontWeight.bold)),
                     TextField(controller: _codeCtrl, decoration: const InputDecoration(labelText: "Code siège")),
                     TextField(controller: _refCtrl, decoration: const InputDecoration(labelText: "Référence")),
                     const SizedBox(height: 10),
@@ -977,6 +953,113 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
                           ),
                         )),
                   ]
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
+// ÉCRAN CODE TABLE (Gestion pure des Tables)
+// ----------------------------------------------------------------------
+class ConfigTableScreen extends StatefulWidget {
+  const ConfigTableScreen({super.key});
+
+  @override
+  State<ConfigTableScreen> createState() => _ConfigTableScreenState();
+}
+
+class _ConfigTableScreenState extends State<ConfigTableScreen> {
+  bool _deverrouille = false;
+  final TextEditingController _pwdCtrl = TextEditingController();
+  final TextEditingController _newTableCtrl = TextEditingController();
+
+  List<String> _tables = [];
+
+  void _verifier() {
+    if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
+      setState(() => _deverrouille = true);
+      _rafraichirTables();
+    } else {
+      _pwdCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mot de passe incorrect.")));
+    }
+  }
+
+  void _rafraichirTables() async {
+    List<String> t = await DatabaseHelper.listerTables();
+    setState(() {
+      _tables = t;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("CODE TABLE")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: !_deverrouille
+            ? Column(
+                children: [
+                  const Text("Accès protégé par mot de passe."),
+                  TextField(
+                    controller: _pwdCtrl,
+                    autofocus: true,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: "Mot de passe"),
+                  ),
+                  const SizedBox(height: 10),
+                  ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _newTableCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: "Numéro de table"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      ElevatedButton(
+                        onPressed: () async {
+                          if (_newTableCtrl.text.isNotEmpty) {
+                            await DatabaseHelper.ajouterTable(_newTableCtrl.text);
+                            _newTableCtrl.clear();
+                            _rafraichirTables();
+                          }
+                        },
+                        child: const Text("Créer table"),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  const Text("Tables enregistrées :", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _tables.length,
+                      itemBuilder: (context, index) {
+                        final numTable = _tables[index];
+                        return ListTile(
+                          title: Text("Table $numTable"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              await DatabaseHelper.supprimerTable(numTable);
+                              _rafraichirTables();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ],
               ),
       ),
