@@ -682,7 +682,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   decoration: BoxDecoration(color: bg, border: Border.all(color: border)),
                   child: Row(
                     children: [
-                      SizedBox(width: 30, child: Center(child: Text(_theoRef[pos]!.isNotEmpty ? "1" : ""))),
+                      SizedBox(width: 30, child: Center(child: Text(_theoRef[pos]!.isNotEmpty ? pos : ""))),
                       const VerticalDivider(width: 1),
                       Expanded(child: Center(child: Text(_theoRef[pos]!))),
                     ],
