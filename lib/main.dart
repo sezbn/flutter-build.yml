@@ -633,7 +633,7 @@ class _ScanScreenState extends State<ScanScreen> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ROUGE_ERR,
-                      padding: const EdgeInsets.vertical(12),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: _resetChariot,
                     child: const Text("Réinitialiser", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -823,7 +823,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
                 ],
               )
             : Column(
-                crossAxisAlignment: CrossAlignment.start,
+               crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Dernier numéro de chariot enregistré : ${_dernierCode ?? '—'}", style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 15),
