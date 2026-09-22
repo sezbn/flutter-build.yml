@@ -152,7 +152,6 @@ class DatabaseHelper {
       return res.first['reference'] as String;
     }
 
-    // Match par préfixe si le code scanné contient des caractères secondaires
     final all = await db.query('correspondances_globales');
     String? bestRef;
     int bestLen = 0;
@@ -662,7 +661,7 @@ class _ScanScreenState extends State<ScanScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN HISTORIQUE ET EXPORT EXCEL (.XLSX) POUR HONEYWELL CT45
+// ÉCRAN HISTORIQUE ET EXPORT EXCEL (.XLSX)
 // ----------------------------------------------------------------------
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -719,13 +718,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     for (var r in _controles) {
       sheetObject.appendRow([
         excel_lib.IntCellValue(r['id'] as int),
-        excel_lib.TextCellValue(r['date_scan'] ?? ''),
-        excel_lib.TextCellValue(r['table_numero'] ?? '-'),
-        excel_lib.TextCellValue(r['code_base'] ?? ''),
-        excel_lib.TextCellValue(r['position'] ?? ''),
-        excel_lib.TextCellValue(r['reference_attendue'] ?? ''),
-        excel_lib.TextCellValue(r['code_siege'] ?? ''),
-        excel_lib.TextCellValue(r['reference_trouvee'] ?? ''),
+        excel_lib.TextCellValue(r['date_scan']?.toString() ?? ''),
+        excel_lib.TextCellValue(r['table_numero']?.toString() ?? '-'),
+        excel_lib.TextCellValue(r['code_base']?.toString() ?? ''),
+        excel_lib.TextCellValue(r['position']?.toString() ?? ''),
+        excel_lib.TextCellValue(r['reference_attendue']?.toString() ?? ''),
+        excel_lib.TextCellValue(r['code_siege']?.toString() ?? ''),
+        excel_lib.TextCellValue(r['reference_trouvee']?.toString() ?? ''),
         excel_lib.TextCellValue(r['conforme'] == 1 ? 'OK' : 'NON CONFORME'),
       ]);
     }
@@ -745,17 +744,21 @@ class _HistoryScreenState extends State<HistoryScreen> {
           ..createSync(recursive: true)
           ..writeAsBytesSync(fileBytes);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Fichier enregistré sur le CT45 :\nDownload/Export_Controles_$timestamp.xlsx"),
-            duration: const Duration(seconds: 5),
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("Fichier enregistré sur le CT45 :\nDownload/Export_Controles_$timestamp.xlsx"),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erreur d'exportation : $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Erreur d'exportation : $e")),
+        );
+      }
     }
   }
 
