@@ -309,14 +309,17 @@ class _ScanScreenState extends State<ScanScreen> {
       _borderStatus = {};
     });
   }
-
-  void _focusInput() {
+void _focusInput() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Sayfa aktif değilse odağı ana ekrana zorlama
+      if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
+
       if (!_focusNode.hasFocus) {
         FocusScope.of(context).requestFocus(_focusNode);
       }
     });
   }
+
 
   void _afficherErreur(String message) {
     showDialog(
