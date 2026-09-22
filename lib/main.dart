@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
+import 'package:excel/excel.dart' as excel_lib;
+import 'package:permission_handler/permission_handler.dart';
 
 // ----------------------------------------------------------------------
 // CONFIGURATION & COULEURS
@@ -39,60 +42,68 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE tables_ref (
-            numero TEXT PRIMARY KEY
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE references_table (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            table_numero TEXT NOT NULL,
-            code_siege TEXT NOT NULL,
-            reference TEXT NOT NULL,
-            UNIQUE(table_numero, code_siege)
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE etat_chariot (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            dernier_code_base INTEGER
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE controles (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            table_numero TEXT,
-            chariot_type TEXT,
-            chariot_label TEXT,
-            code_base TEXT,
-            position TEXT,
-            reference_attendue TEXT,
-            code_siege TEXT,
-            reference_trouvee TEXT,
-            conforme INTEGER,
-            date_scan TEXT
-          )
-        ''');
+        await _createTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS correspondances_globales (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              reference TEXT NOT NULL,
+              code TEXT NOT NULL UNIQUE
+            )
+          ''');
+        }
       },
     );
   }
 
-  // --- Tables ---
+  static Future<void> _createTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE tables_ref (
+        numero TEXT PRIMARY KEY
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE correspondances_globales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reference TEXT NOT NULL,
+        code TEXT NOT NULL UNIQUE
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE etat_chariot (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        dernier_code_base INTEGER
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE controles (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        table_numero TEXT,
+        chariot_type TEXT,
+        chariot_label TEXT,
+        code_base TEXT,
+        position TEXT,
+        reference_attendue TEXT,
+        code_siege TEXT,
+        reference_trouvee TEXT,
+        conforme INTEGER,
+        date_scan TEXT
+      )
+    ''');
+  }
+
+  // --- Tables de Montage ---
   static Future<void> ajouterTable(String numero) async {
     final db = await database;
-    await db.insert(
-      'tables_ref',
-      {'numero': numero.trim()},
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert('tables_ref', {'numero': numero.trim()}, conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   static Future<void> supprimerTable(String numero) async {
     final db = await database;
-    await db.delete('references_table', where: 'table_numero = ?', whereArgs: [numero]);
     await db.delete('tables_ref', where: 'numero = ?', whereArgs: [numero]);
   }
 
@@ -108,77 +119,49 @@ class DatabaseHelper {
     return res.isNotEmpty;
   }
 
-  // --- Références ---
-  static Future<void> ajouterReference(String tableNumero, String codeSiege, String reference) async {
+  // --- CORRESPONDANCE GLOBALE (REFERENCE / CODE) ---
+  static Future<void> ajouterOuMajCorrespondance(String reference, String code) async {
     final db = await database;
     await db.insert(
-      'references_table',
-      {
-        'table_numero': tableNumero,
-        'code_siege': codeSiege.trim(),
-        'reference': reference.trim()
-      },
+      'correspondances_globales',
+      {'reference': reference.trim(), 'code': code.trim()},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
 
-  static Future<void> supprimerReference(String tableNumero, String codeSiege) async {
+  static Future<void> supprimerCorrespondance(int id) async {
     final db = await database;
-    await db.delete(
-      'references_table',
-      where: 'table_numero = ? AND code_siege = ?',
-      whereArgs: [tableNumero, codeSiege],
-    );
+    await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<List<Map<String, dynamic>>> listerReferences(String tableNumero) async {
+  static Future<List<Map<String, dynamic>>> listerCorrespondances() async {
     final db = await database;
-    return await db.query(
-      'references_table',
-      where: 'table_numero = ?',
-      whereArgs: [tableNumero],
-      orderBy: 'code_siege',
-    );
+    return await db.query('correspondances_globales', orderBy: 'id DESC');
   }
 
-  // RECHERCHE UNIFIÉE ET GLOBALE
-  static Future<String?> lookupReference(String codeSiege, String? tableNumero) async {
+  static Future<String?> lookupReferenceGlobal(String codeSiege) async {
     final db = await database;
+    final res = await db.query(
+      'correspondances_globales',
+      columns: ['reference'],
+      where: 'code = ?',
+      whereArgs: [codeSiege.trim()],
+    );
 
-    // 1. Recherche exacte sur la table sélectionnée
-    if (tableNumero != null) {
-      final res = await db.query(
-        'references_table',
-        columns: ['reference'],
-        where: 'table_numero = ? AND code_siege = ?',
-        whereArgs: [tableNumero, codeSiege],
-      );
-      if (res.isNotEmpty) return res.first['reference'] as String;
+    if (res.isNotEmpty) {
+      return res.first['reference'] as String;
     }
 
-    // 2. Recherche exacte globale
-    final resGlobal = await db.query(
-      'references_table',
-      columns: ['reference'],
-      where: 'code_siege = ?',
-      whereArgs: [codeSiege],
-    );
-    if (resGlobal.isNotEmpty) return resGlobal.first['reference'] as String;
-
-    // 3. Fallback : Correspondance par préfixe
-    final all = await db.query('references_table');
-    return _matchPrefix(all, codeSiege);
-  }
-
-  static String? _matchPrefix(List<Map<String, dynamic>> rows, String codeSiege) {
+    // Match par préfixe si le code scanné contient des caractères secondaires
+    final all = await db.query('correspondances_globales');
     String? bestRef;
     int bestLen = 0;
-    for (var r in rows) {
-      String cs = r['code_siege'] as String;
+    for (var r in all) {
+      String c = r['code'] as String;
       String ref = r['reference'] as String;
-      if (codeSiege.startsWith(cs) && cs.length > bestLen) {
+      if (codeSiege.startsWith(c) && c.length > bestLen) {
         bestRef = ref;
-        bestLen = cs.length;
+        bestLen = c.length;
       }
     }
     return bestRef;
@@ -227,7 +210,7 @@ class DatabaseHelper {
     });
   }
 
-  static Future<List<Map<String, dynamic>>> listerControles({int limit = 200}) async {
+  static Future<List<Map<String, dynamic>>> listerControles({int limit = 500}) async {
     final db = await database;
     return await db.query('controles', orderBy: 'id DESC', limit: limit);
   }
@@ -312,7 +295,6 @@ class _ScanScreenState extends State<ScanScreen> {
   void _focusInput() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || ModalRoute.of(context)?.isCurrent != true) return;
-
       if (!_focusNode.hasFocus) {
         FocusScope.of(context).requestFocus(_focusNode);
       }
@@ -367,7 +349,7 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _traiterScanTable(String raw) async {
     bool existe = await DatabaseHelper.tableExiste(raw);
     if (!existe) {
-      _afficherErreur("Table inconnue : $raw\nCréez-la d'abord dans CODE TABLE (menu).");
+      _afficherErreur("Table inconnue : $raw\nCréez-la d'abord dans CODE TABLE.");
       return;
     }
     setState(() {
@@ -377,16 +359,9 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   Future<void> _traiterScanChariot(String raw) async {
-    if (_tableCourante == null) {
-      _afficherErreur(
-        "Rappel : aucune table de correspondance n'a été flashée.\n"
-        "Les sièges seront vérifiés sur toutes les tables enregistrées.",
-      );
-    }
-
     List<String> parts = raw.split(';').where((p) => p.isNotEmpty).toList();
     if (parts.length < 4) {
-      _afficherErreur("QR chariot mal formé (structure inattendue).");
+      _afficherErreur("QR chariot mal formé.");
       return;
     }
 
@@ -420,13 +395,6 @@ class _ScanScreenState extends State<ScanScreen> {
         "CHARIOT NON CONFORME A LA SEQUENCE\n"
         "Attendu : ${dernier + 1}\nScanné  : $nouveau",
       );
-      setState(() {
-        _chariotActuel = null;
-        _filePositions = [];
-        _positionCourante = null;
-        _resetCases();
-        _labelEtat = "Scan des sièges bloqué : le chariot ne suit pas la séquence.\nScannez le bon chariot.";
-      });
       return;
     }
 
@@ -473,16 +441,13 @@ class _ScanScreenState extends State<ScanScreen> {
 
   Future<void> _traiterScanSiege(String codeSiege) async {
     if (_chariotActuel == null || _positionCourante == null) {
-      _afficherErreur(
-        "Scan de siège non autorisé.\n"
-        "Aucun chariot valide en cours : scannez d'abord un chariot conforme.",
-      );
+      _afficherErreur("Scan non autorisé. Scannez d'abord un chariot valide.");
       return;
     }
 
     String pos = _positionCourante!;
     String refAttendue = _chariotActuel!["positions"][pos];
-    String? refTrouvee = await DatabaseHelper.lookupReference(codeSiege, _tableCourante);
+    String? refTrouvee = await DatabaseHelper.lookupReferenceGlobal(codeSiege);
 
     setState(() {
       _reelRef[pos] = codeSiege;
@@ -506,10 +471,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _borderStatus[pos] = ROUGE_ERR;
       });
 
-      _afficherErreur(
-        "Code siège inconnu : $codeSiege\n(absent de la table de correspondance)\n\n"
-        "Position $pos reste à faire.",
-      );
+      _afficherErreur("Code siège $codeSiege inconnu dans la table de correspondance.");
       return;
     }
 
@@ -532,11 +494,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _borderStatus[pos] = ROUGE_ERR;
       });
 
-      _afficherErreur(
-        "NON CONFORME — position $pos\n"
-        "Attendu : $refAttendue\nScanné  : $refTrouvee\n\n"
-        "Retirez ce siège et scannez le bon.",
-      );
+      _afficherErreur("NON CONFORME — position $pos\nAttendu : $refAttendue\nScanné  : $refTrouvee ($codeSiege)");
       return;
     }
 
@@ -704,7 +662,7 @@ class _ScanScreenState extends State<ScanScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN HISTORIQUE
+// ÉCRAN HISTORIQUE ET EXPORT EXCEL (.XLSX) POUR HONEYWELL CT45
 // ----------------------------------------------------------------------
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -727,12 +685,91 @@ class _HistoryScreenState extends State<HistoryScreen> {
     setState(() => _controles = list);
   }
 
+  Future<void> _exporterExcel() async {
+    if (_controles.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Aucun contrôle à exporter.")),
+      );
+      return;
+    }
+
+    if (Platform.isAndroid) {
+      var status = await Permission.storage.request();
+      if (!status.isGranted) {
+        await Permission.manageExternalStorage.request();
+      }
+    }
+
+    var excel = excel_lib.Excel.createExcel();
+    excel_lib.Sheet sheetObject = excel['Controles_Sieges'];
+    excel.delete('Sheet1');
+
+    sheetObject.appendRow([
+      excel_lib.TextCellValue('ID'),
+      excel_lib.TextCellValue('Date/Heure'),
+      excel_lib.TextCellValue('Table'),
+      excel_lib.TextCellValue('Chariot N°'),
+      excel_lib.TextCellValue('Position'),
+      excel_lib.TextCellValue('Réf. Attendue'),
+      excel_lib.TextCellValue('Code Siège Scanné'),
+      excel_lib.TextCellValue('Réf. Trouvée'),
+      excel_lib.TextCellValue('Conforme'),
+    ]);
+
+    for (var r in _controles) {
+      sheetObject.appendRow([
+        excel_lib.IntCellValue(r['id'] as int),
+        excel_lib.TextCellValue(r['date_scan'] ?? ''),
+        excel_lib.TextCellValue(r['table_numero'] ?? '-'),
+        excel_lib.TextCellValue(r['code_base'] ?? ''),
+        excel_lib.TextCellValue(r['position'] ?? ''),
+        excel_lib.TextCellValue(r['reference_attendue'] ?? ''),
+        excel_lib.TextCellValue(r['code_siege'] ?? ''),
+        excel_lib.TextCellValue(r['reference_trouvee'] ?? ''),
+        excel_lib.TextCellValue(r['conforme'] == 1 ? 'OK' : 'NON CONFORME'),
+      ]);
+    }
+
+    try {
+      Directory? downloadsDir = Directory('/storage/emulated/0/Download');
+      if (!await downloadsDir.exists()) {
+        downloadsDir = await Directory('/storage/emulated/0/Téléchargements').create(recursive: true);
+      }
+
+      String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+      String filePath = p.join(downloadsDir.path, "Export_Controles_$timestamp.xlsx");
+
+      List<int>? fileBytes = excel.save();
+      if (fileBytes != null) {
+        File(filePath)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(fileBytes);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Fichier enregistré sur le CT45 :\nDownload/Export_Controles_$timestamp.xlsx"),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Erreur d'exportation : $e")),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Historique"),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.file_download),
+            tooltip: "Exporter sur CT45",
+            onPressed: _exporterExcel,
+          ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _charger),
         ],
       ),
@@ -746,7 +783,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 return Card(
                   child: ListTile(
                     title: Text("[${r['date_scan']}] Table ${r['table_numero'] ?? '-'} | Chariot ${r['code_base']}"),
-                    subtitle: Text("Pos ${r['position']} | Attendu: ${r['reference_attendue']} | Scanné: ${r['reference_trouvee']}"),
+                    subtitle: Text("Pos ${r['position']} | Attendu: ${r['reference_attendue']} | Scanné: ${r['reference_trouvee'] ?? r['code_siege']}"),
                     trailing: Text(
                       ok ? "OK" : "NON CONFORME",
                       style: TextStyle(color: ok ? VERT_OK : ROUGE_ERR, fontWeight: FontWeight.bold),
@@ -826,7 +863,13 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
                   const SizedBox(height: 15),
                   Row(
                     children: [
-                      Expanded(child: TextField(controller: _seqCtrl, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: "Forcer dernier n° chariot"))),
+                      Expanded(
+                        child: TextField(
+                          controller: _seqCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: "Forcer dernier n° chariot"),
+                        ),
+                      ),
                       const SizedBox(width: 10),
                       ElevatedButton(onPressed: _appliquer, child: const Text("Appliquer")),
                     ],
@@ -839,7 +882,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CODE SIÈGE (Gestion pure des correspondances Sièges)
+// ÉCRAN CODE SIÈGE : TABLE DE CORRESPONDANCE GLOBAL (REFERENCE / CODE)
 // ----------------------------------------------------------------------
 class ConfigSiegesScreen extends StatefulWidget {
   const ConfigSiegesScreen({super.key});
@@ -851,38 +894,33 @@ class ConfigSiegesScreen extends StatefulWidget {
 class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   bool _deverrouille = false;
   final TextEditingController _pwdCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
   final TextEditingController _refCtrl = TextEditingController();
+  final TextEditingController _codeCtrl = TextEditingController();
 
-  List<String> _tables = [];
-  String? _tableSelectionee;
-  List<Map<String, dynamic>> _references = [];
+  List<Map<String, dynamic>> _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
       setState(() => _deverrouille = true);
-      _rafraichirTables();
+      _rafraichirCorrespondances();
     } else {
       _pwdCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mot de passe incorrect.")));
     }
   }
 
-  void _rafraichirTables() async {
-    List<String> t = await DatabaseHelper.listerTables();
-    setState(() {
-      _tables = t;
-      if (_tableSelectionee == null && t.isNotEmpty) _tableSelectionee = t.first;
-    });
-    _rafraichirReferences();
+  void _rafraichirCorrespondances() async {
+    List<Map<String, dynamic>> list = await DatabaseHelper.listerCorrespondances();
+    setState(() => _correspondances = list);
   }
 
-  void _rafraichirReferences() async {
-    if (_tableSelectionee != null) {
-      List<Map<String, dynamic>> refs = await DatabaseHelper.listerReferences(_tableSelectionee!);
-      setState(() => _references = refs);
-    } else {
-      setState(() => _references = []);
+  void _ajouterOuModifier() async {
+    if (_refCtrl.text.isNotEmpty && _codeCtrl.text.isNotEmpty) {
+      await DatabaseHelper.ajouterOuMajCorrespondance(_refCtrl.text, _codeCtrl.text);
+      _refCtrl.clear();
+      _codeCtrl.clear();
+      _rafraichirCorrespondances();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Correspondance enregistrée.")));
     }
   }
 
@@ -906,53 +944,101 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
                   ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
                 ],
               )
-            : ListView(
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Sélectionner la table à modifier :", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: _tables.map((num) {
-                      bool sel = num == _tableSelectionee;
-                      return ChoiceChip(
-                        label: Text("Table $num"),
-                        selected: sel,
-                        onSelected: (_) {
-                          setState(() => _tableSelectionee = num);
-                          _rafraichirReferences();
-                        },
-                      );
-                    }).toList(),
+                  const Text(
+                    "Table de correspondance Globale :",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                  const Divider(height: 30),
-                  if (_tableSelectionee != null) ...[
-                    Text("Correspondances pour la Table $_tableSelectionee :", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    TextField(controller: _codeCtrl, decoration: const InputDecoration(labelText: "Code siège")),
-                    TextField(controller: _refCtrl, decoration: const InputDecoration(labelText: "Référence")),
-                    const SizedBox(height: 10),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (_codeCtrl.text.isNotEmpty && _refCtrl.text.isNotEmpty) {
-                          await DatabaseHelper.ajouterReference(_tableSelectionee!, _codeCtrl.text, _refCtrl.text);
-                          _codeCtrl.clear();
-                          _refCtrl.clear();
-                          _rafraichirReferences();
-                        }
-                      },
-                      child: const Text("Ajouter / Mettre à jour"),
-                    ),
-                    const SizedBox(height: 10),
-                    ..._references.map((r) => ListTile(
-                          title: Text("${r['code_siege']} -> ${r['reference']}"),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              await DatabaseHelper.supprimerReference(_tableSelectionee!, r['code_siege']);
-                              _rafraichirReferences();
-                            },
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _refCtrl,
+                          decoration: const InputDecoration(
+                            labelText: "REFERENCE (Chariot)",
+                            hintText: "Ex: 98869740ZM",
+                            border: OutlineInputBorder(),
                           ),
-                        )),
-                  ]
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _codeCtrl,
+                          decoration: const InputDecoration(
+                            labelText: "CODE (Siège)",
+                            hintText: "Ex: BWAD6790000",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _ajouterOuModifier,
+                      child: const Text("Ajouter / Corriger Correspondance"),
+                    ),
+                  ),
+                  const Divider(height: 25),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.vertical,
+                      child: Table(
+                        border: TableBorder.all(color: Colors.black45),
+                        columnWidths: const {
+                          0: FlexColumnWidth(2),
+                          1: FlexColumnWidth(2),
+                          2: FlexColumnWidth(1),
+                        },
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: Colors.grey.shade300),
+                            children: const [
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("REFERENCE", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("CODE", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: Text("Action", style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          ..._correspondances.map((c) {
+                            return TableRow(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(c['reference'].toString()),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Text(c['code'].toString()),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () async {
+                                    await DatabaseHelper.supprimerCorrespondance(c['id'] as int);
+                                    _rafraichirCorrespondances();
+                                  },
+                                )
+                              ],
+                            );
+                          }),
+                        ],
+                      ),
+                    ),
+                  )
                 ],
               ),
       ),
@@ -961,7 +1047,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CODE TABLE (Gestion pure des Tables)
+// ÉCRAN CODE TABLE
 // ----------------------------------------------------------------------
 class ConfigTableScreen extends StatefulWidget {
   const ConfigTableScreen({super.key});
@@ -989,9 +1075,7 @@ class _ConfigTableScreenState extends State<ConfigTableScreen> {
 
   void _rafraichirTables() async {
     List<String> t = await DatabaseHelper.listerTables();
-    setState(() {
-      _tables = t;
-    });
+    setState(() => _tables = t);
   }
 
   @override
