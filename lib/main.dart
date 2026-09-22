@@ -903,7 +903,9 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
             ? Column(
                 children: [
                   const Text("Accès protégé par mot de passe."),
-                  TextField(controller: _pwdCtrl, obscureText: true, decoration: const InputDecoration(labelText: "Mot de passe")),
+                  TextField(controller: _pwdCtrl,
+                  autofocus: true,
+                  obscureText: true, decoration: const InputDecoration(labelText: "Mot de passe")),
                   const SizedBox(height: 10),
                   ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
                 ],
