@@ -266,6 +266,8 @@ class _ScanScreenState extends State<ScanScreen> {
   Map<String, dynamic>? _chariotActuel;
   List<String> _filePositions = [];
   String? _positionCourante;
+  bool _chariotConformeGrandCadre = false;
+  String _dernierChariotValideNum = "";
 
   Map<String, String> _theoRef = {"1": "", "2": "", "3": "", "4": ""};
   Map<String, String> _reelRef = {"1": "", "2": "", "3": "", "4": ""};
@@ -319,11 +321,69 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
+  // --- POPUP ERREUR CHARIOT ROUGE AGRANDI ---
+  void _afficherErreurChariotSequence(int attendu, int scanne) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => Dialog(
+        backgroundColor: ROUGE_ERR,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          width: MediaQuery.of(context).size.width * 0.85,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 64),
+              const SizedBox(height: 16),
+              const Text(
+                "CHARIOT NON CONFORME A LA SEQUENCE",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Attendu : $attendu\nScanné : $scanne",
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _focusInput();
+                },
+                child: const Text(
+                  "OK",
+                  style: TextStyle(color: ROUGE_ERR, fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _resetChariot() {
     setState(() {
       _chariotActuel = null;
       _filePositions = [];
       _positionCourante = null;
+      _chariotConformeGrandCadre = false;
       _resetCases();
       _labelEtat = "Flashez le QR du chariot pour commencer.";
     });
@@ -390,10 +450,7 @@ class _ScanScreenState extends State<ScanScreen> {
     int? dernier = await DatabaseHelper.getDernierCodeBase();
 
     if (dernier != null && nouveau != dernier + 1) {
-      _afficherErreur(
-        "CHARIOT NON CONFORME A LA SEQUENCE\n"
-        "Attendu : ${dernier + 1}\nScanné  : $nouveau",
-      );
+      _afficherErreurChariotSequence(dernier + 1, nouveau);
       return;
     }
 
@@ -405,6 +462,7 @@ class _ScanScreenState extends State<ScanScreen> {
     };
 
     setState(() {
+      _chariotConformeGrandCadre = false;
       _chariotActuel = chariot;
       _filePositions = ORDRE_INSTALLATION.where((p) => positions.containsKey(p)).toList();
       _resetCases();
@@ -422,6 +480,8 @@ class _ScanScreenState extends State<ScanScreen> {
     if (_filePositions.isEmpty) {
       String termine = _chariotActuel != null ? _chariotActuel!["code_base"] : "?";
       setState(() {
+        _dernierChariotValideNum = termine;
+        _chariotConformeGrandCadre = true; // Déclenche l'affichage du GRAND CADRE VERT
         _labelEtat = "Chariot $termine terminé et conforme.\nScannez le chariot suivant.";
         _chariotActuel = null;
         _positionCourante = null;
@@ -541,14 +601,54 @@ class _ScanScreenState extends State<ScanScreen> {
               ],
             ),
           ),
+          
+          // --- ZONE PRINCIPALE : CADRE VERT GRAND FORMAT OU LISTE DES SIÈGES ---
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              children: ["1", "2", "3", "4"].map((p) => _buildLignePosition(p)).toList(),
-            ),
+            child: _chariotConformeGrandCadre
+                ? Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: VERT_OK,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: Colors.white, size: 90),
+                          const SizedBox(height: 10),
+                          const Text(
+                            "CONFORME",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 38,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            "Chariot n° $_dernierChariotValideNum Validé",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    children: ["1", "2", "3", "4"].map((p) => _buildLignePosition(p)).toList(),
+                  ),
           ),
+
           Container(
-            height: 90,
+            height: 80,
             alignment: Alignment.center,
             child: Text(
               _labelEtat,
@@ -978,70 +1078,32 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _ajouterOuModifier,
+                        child: const Text("Ajouter / Maj"),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _ajouterOuModifier,
-                      child: const Text("Ajouter / Corriger Correspondance"),
+                  const SizedBox(height: 15),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _correspondances.length,
+                      itemBuilder: (ctx, index) {
+                        final c = _correspondances[index];
+                        return ListTile(
+                          title: Text("${c['reference']} ➔ ${c['code']}"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: ROUGE_ERR),
+                            onPressed: () async {
+                              await DatabaseHelper.supprimerCorrespondance(c['id']);
+                              _rafraichirCorrespondances();
+                            },
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const Divider(height: 25),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.vertical,
-                      child: Table(
-                        border: TableBorder.all(color: Colors.black45),
-                        columnWidths: const {
-                          0: FlexColumnWidth(2),
-                          1: FlexColumnWidth(2),
-                          2: FlexColumnWidth(1),
-                        },
-                        children: [
-                          TableRow(
-                            decoration: BoxDecoration(color: Colors.grey.shade300),
-                            children: const [
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("REFERENCE", style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("CODE", style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text("Action", style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          ..._correspondances.map((c) {
-                            return TableRow(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(c['reference'].toString()),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(8.0),
-                                  child: Text(c['code'].toString()),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () async {
-                                    await DatabaseHelper.supprimerCorrespondance(c['id'] as int);
-                                    _rafraichirCorrespondances();
-                                  },
-                                )
-                              ],
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  )
                 ],
               ),
       ),
@@ -1050,7 +1112,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CODE TABLE
+// ÉCRAN CONFIGURATION DES TABLES DE MONTAGE
 // ----------------------------------------------------------------------
 class ConfigTableScreen extends StatefulWidget {
   const ConfigTableScreen({super.key});
@@ -1060,25 +1122,26 @@ class ConfigTableScreen extends StatefulWidget {
 }
 
 class _ConfigTableScreenState extends State<ConfigTableScreen> {
-  bool _deverrouille = false;
-  final TextEditingController _pwdCtrl = TextEditingController();
-  final TextEditingController _newTableCtrl = TextEditingController();
-
+  final TextEditingController _tableCtrl = TextEditingController();
   List<String> _tables = [];
 
-  void _verifier() {
-    if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
-      setState(() => _deverrouille = true);
-      _rafraichirTables();
-    } else {
-      _pwdCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mot de passe incorrect.")));
-    }
+  @override
+  void initState() {
+    super.initState();
+    _chargerTables();
   }
 
-  void _rafraichirTables() async {
-    List<String> t = await DatabaseHelper.listerTables();
-    setState(() => _tables = t);
+  void _chargerTables() async {
+    final list = await DatabaseHelper.listerTables();
+    setState(() => _tables = list);
+  }
+
+  void _ajouterTable() async {
+    if (_tableCtrl.text.isNotEmpty) {
+      await DatabaseHelper.ajouterTable(_tableCtrl.text);
+      _tableCtrl.clear();
+      _chargerTables();
+    }
   }
 
   @override
@@ -1087,68 +1150,47 @@ class _ConfigTableScreenState extends State<ConfigTableScreen> {
       appBar: AppBar(title: const Text("CODE TABLE")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: !_deverrouille
-            ? Column(
-                children: [
-                  const Text("Accès protégé par mot de passe."),
-                  TextField(
-                    controller: _pwdCtrl,
-                    autofocus: true,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: "Mot de passe"),
-                  ),
-                  const SizedBox(height: 10),
-                  ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newTableCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: "Numéro de table"),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton(
-                        onPressed: () async {
-                          if (_newTableCtrl.text.isNotEmpty) {
-                            await DatabaseHelper.ajouterTable(_newTableCtrl.text);
-                            _newTableCtrl.clear();
-                            _rafraichirTables();
-                          }
-                        },
-                        child: const Text("Créer table"),
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  const Text("Tables enregistrées :", style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _tables.length,
-                      itemBuilder: (context, index) {
-                        final numTable = _tables[index];
-                        return ListTile(
-                          title: Text("Table $numTable"),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              await DatabaseHelper.supprimerTable(numTable);
-                              _rafraichirTables();
-                            },
-                          ),
-                        );
-                      },
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tableCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Numéro de table",
+                      border: OutlineInputBorder(),
                     ),
                   ),
-                ],
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _ajouterTable,
+                  child: const Text("Ajouter"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _tables.length,
+                itemBuilder: (ctx, i) {
+                  final t = _tables[i];
+                  return ListTile(
+                    title: Text("Table $t"),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: ROUGE_ERR),
+                      onPressed: () async {
+                        await DatabaseHelper.supprimerTable(t);
+                        _chargerTables();
+                      },
+                    ),
+                  );
+                },
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
