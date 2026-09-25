@@ -279,9 +279,25 @@ class _ScanScreenState extends State<ScanScreen> {
       "• Flashez les sièges";
 
   @override
+ @override
   void initState() {
     super.initState();
     _resetCases();
+
+    // Récupération automatique du focus au démarrage
+    _focusInput();
+
+    // Écouteur pour intercepter la perte de focus et le réattribuer immédiatement
+    _focusNode.addListener(() {
+      if (!_focusNode.hasFocus) {
+        // Petit délai pour laisser les popups/dialogues se fermer proprement
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+            FocusScope.of(context).requestFocus(_focusNode);
+          }
+        });
+      }
+    });
   }
 
   void _resetCases() {
