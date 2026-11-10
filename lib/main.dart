@@ -682,6 +682,8 @@ class _ScanScreenState extends State<ScanScreen> {
                     controller: _controller,
                     focusNode: _focusNode,
                     autofocus: true,
+                    readOnly: true,
+                    showCursor: true,
                     onSubmitted: _onScanValide,
                     decoration: const InputDecoration(
                       hintText: "Zone de Scan",
