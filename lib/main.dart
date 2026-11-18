@@ -495,16 +495,33 @@ class _ScanScreenState extends State<ScanScreen> {
     _avancerPosition();
   }
 
-  void _avancerPosition() {
+void _avancerPosition() async {
     if (_filePositions.isEmpty) {
       String termine = _chariotActuel != null ? _chariotActuel!["code_base"] : "?";
       setState(() {
         _dernierChariotValideNum = termine;
         _chariotConformeGrandCadre = true; // Déclenche l'affichage du GRAND CADRE VERT
-        _labelEtat = "Chariot $termine terminé et conforme.\nScannez le chariot suivant.";
+        _labelEtat = "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s...";
         _chariotActuel = null;
         _positionCourante = null;
       });
+
+      // --- ATTENTE DE 30 SECONDES ---
+      await Future.delayed(const Duration(seconds: 30));
+
+      // --- LANCEMENT DE QUICKTRON ---
+      final AndroidIntent intent = AndroidIntent(
+        action: 'action_main',
+        package: 'com.quicktron.app', // Vérifiez le nom exact du package Quicktron sur le terminal CT45
+        componentName: 'com.quicktron.app.MainActivity',
+      );
+
+      try {
+        await intent.launch();
+      } catch (e) {
+        debugPrint("Erreur lors du lancement de Quicktron : $e");
+      }
+
       return;
     }
 
@@ -516,7 +533,6 @@ class _ScanScreenState extends State<ScanScreen> {
       _labelEtat = "Position $_positionCourante — Réf. attendue : $refAttendue\nScannez le siège.";
     });
   }
-
   Future<void> _traiterScanSiege(String codeSiege) async {
     if (_chariotActuel == null || _positionCourante == null) {
       _afficherErreur("Scan non autorisé. Scannez d'abord un chariot valide.");
