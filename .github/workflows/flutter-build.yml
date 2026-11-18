@@ -31,6 +31,15 @@ jobs:
       - name: Reconstruct missing Android files
         run: flutter create . --platforms=android
 
+      - name: Force compileSdk 34
+        run: |
+          if [ -f android/app/build.gradle.kts ]; then
+            sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 34/g' android/app/build.gradle.kts
+          elif [ -f android/app/build.gradle ]; then
+            sed -i 's/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 34/g' android/app/build.gradle
+            sed -i 's/compileSdk flutter.compileSdkVersion/compileSdk 34/g' android/app/build.gradle
+          fi
+
       - name: Build APK
         run: flutter build apk --release
 
