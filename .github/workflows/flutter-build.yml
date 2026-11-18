@@ -25,28 +25,19 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
-
       - name: Reconstruct missing Android files
         run: flutter create . --platforms=android
 
-      - name: Force compileSdk and targetSdk to 34
+      - name: Force compileSdk to 36
         run: |
-          # On s'assure que le fichier build.gradle existe et on force la version 34
-          BUILD_FILE="android/app/build.gradle"
-          if [ -f "$BUILD_FILE" ]; then
-            sed -i 's/compileSdkVersion.*/compileSdkVersion 34/g' "$BUILD_FILE"
-            sed -i 's/compileSdk.*/compileSdk = 34/g' "$BUILD_FILE"
-            sed -i 's/targetSdkVersion.*/targetSdkVersion 34/g' "$BUILD_FILE"
-            sed -i 's/targetSdk.*/targetSdk = 34/g' "$BUILD_FILE"
-          fi
+          for f in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$f" ]; then
+              sed -i -E 's/compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*[^[:space:]]+/compileSdk = 36/' "$f"
+            fi
+          done
 
-          BUILD_KTS="android/app/build.gradle.kts"
-          if [ -f "$BUILD_KTS" ]; then
-            sed -i 's/compileSdk =.*/compileSdk = 34/g' "$BUILD_KTS"
-            sed -i 's/targetSdk =.*/targetSdk = 34/g' "$BUILD_KTS"
-          fi
+      - name: Install dependencies
+        run: flutter pub get
 
       - name: Build APK
         run: flutter build apk --release
