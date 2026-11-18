@@ -28,16 +28,19 @@ jobs:
       - name: Reconstruct missing Android files
         run: flutter create . --platforms=android
 
-      - name: Force compileSdk to 36
-        run: |
-          for f in android/app/build.gradle android/app/build.gradle.kts; do
-            if [ -f "$f" ]; then
-              sed -i -E 's/compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*[^[:space:]]+/compileSdk = 36/' "$f"
-            fi
-          done
-
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Force compileSdk 36 (app + plugins)
+        run: |
+          FILES=$(find android "$HOME/.pub-cache/hosted" -maxdepth 6 \
+            \( -name build.gradle -o -name build.gradle.kts \) \
+            -path "*android*" 2>/dev/null)
+          for f in $FILES; do
+            sed -i -E 's/compileSdk(Version)?[[:space:]]*(=)?[[:space:]]*[0-9]+/compileSdk = 36/' "$f"
+          done
+          echo "Fichiers modifiés :"
+          grep -rn "compileSdk" $FILES || true
 
       - name: Build APK
         run: flutter build apk --release
