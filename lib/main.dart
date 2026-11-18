@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart' as p;
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:permission_handler/permission_handler.dart';
+import 'package:android_intent_plus/android_intent.dart';
 
 // ----------------------------------------------------------------------
 // CONFIGURATION & COULEURS
