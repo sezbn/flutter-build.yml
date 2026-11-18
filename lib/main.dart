@@ -182,10 +182,7 @@ class DatabaseHelper {
     ''', [codeBase]);
   }
 
-  Le paramètre booléen sans nom a été corrigé par `required bool conforme` dans la fonction. Voici le code complet de la méthode mis à jour et prêt à être intégré :
-
-```dart
-  // --- Contrôles ---
+    // --- Contrôles ---
   static Future<void> enregistrerControle({
     String? tableNumero,
     required String chariotType,
@@ -212,12 +209,11 @@ class DatabaseHelper {
     });
   }
 
-  static Future<List>> listerControles({int limit = 500}) async {
+  static Future<List<Map<String, dynamic>>> listerControles({int limit = 500}) async {
     final db = await database;
     return await db.query('controles', orderBy: 'id DESC', limit: limit);
   }
 }
-
 // ----------------------------------------------------------------------
 // MAIN APP
 // ----------------------------------------------------------------------
