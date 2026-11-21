@@ -136,10 +136,10 @@ class DatabaseHelper {
     await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<List>> listerCorrespondances() async {
-    final db = await database;
-    return await db.query('correspondances_globales', orderBy: 'id DESC');
-  }
+ static Future<List>> listerCorrespondances() async {
+  final db = await database;
+  return await db.query('correspondances_globales', orderBy: 'id DESC');
+}
 
   static Future<String?> lookupReferenceGlobal(String codeSiege) async {
     final db = await database;
@@ -212,11 +212,9 @@ class DatabaseHelper {
   }
 
   static Future<List>> listerControles({int limit = 500}) async {
-    final db = await database;
-    return await db.query('controles', orderBy: 'id DESC', limit: limit);
-  }
+  final db = await database;
+  return await db.query('controles', orderBy: 'id DESC', limit: limit);
 }
-
 // ----------------------------------------------------------------------
 // MAIN APP
 // ----------------------------------------------------------------------
@@ -885,9 +883,7 @@ class HistoryScreen extends StatefulWidget {
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState extends State<HistoryScreen> {
-  List> _controles = [];
-
+List> _controles = [];
   @override
   void initState() {
     super.initState();
@@ -1115,7 +1111,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   final TextEditingController _refCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
 
-  List> _correspondances = [];
+List> _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
@@ -1128,7 +1124,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   }
 
   void _rafraichirCorrespondances() async {
-    List> list = await DatabaseHelper.listerCorrespondances();
+List> list = await DatabaseHelper.listerCorrespondances();
     setState(() => _correspondances = list);
   }
 
