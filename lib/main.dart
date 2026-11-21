@@ -278,8 +278,7 @@ class _ScanScreenState extends State<ScanScreen> {
       "• Flashez le QR code Fakir\n"
       "• Flashez les sièges";
 
-  @override
- @override
+   @override
   void initState() {
     super.initState();
     _resetCases();
