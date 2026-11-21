@@ -503,14 +503,12 @@ void _avancerPosition() async {
         _positionCourante = null;
       });
 
-      // --- ATTENTE DE 30 SECONDES ---
       await Future.delayed(const Duration(seconds: 30));
 
-      // --- LANCEMENT DE QUICKTRON ---
       final AndroidIntent intent = AndroidIntent(
         action: 'action_main',
-        package: 'com.quicktron.app', // Vérifiez le nom exact du package Quicktron sur le terminal CT45
-        componentName: 'com.quicktron.app.MainActivity',
+        package: 'com.quicktronapp',
+        componentName: 'com.quicktronapp.MainActivity',
       );
 
       try {
