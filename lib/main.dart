@@ -136,10 +136,10 @@ class DatabaseHelper {
     await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
 
- static Future<List>> listerCorrespondances() async {
-  final db = await database;
-  return await db.query('correspondances_globales', orderBy: 'id DESC');
-}
+  static Future<List>> listerCorrespondances() async {
+    final db = await database;
+    return await db.query('correspondances_globales', orderBy: 'id DESC');
+  }
 
   static Future<String?> lookupReferenceGlobal(String codeSiege) async {
     final db = await database;
@@ -212,9 +212,11 @@ class DatabaseHelper {
   }
 
   static Future<List>> listerControles({int limit = 500}) async {
-  final db = await database;
-  return await db.query('controles', orderBy: 'id DESC', limit: limit);
+    final db = await database;
+    return await db.query('controles', orderBy: 'id DESC', limit: limit);
+  }
 }
+
 // ----------------------------------------------------------------------
 // MAIN APP
 // ----------------------------------------------------------------------
@@ -283,11 +285,8 @@ class _ScanScreenState extends State<ScanScreen> {
   void initState() {
     super.initState();
     _resetCases();
-
-    // Récupération automatique du focus au démarrage
     _focusInput();
 
-    // Écouteur pour intercepter la perte de focus et le réattribuer immédiatement
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) {
         Future.delayed(const Duration(milliseconds: 100), () {
@@ -398,7 +397,6 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  // --- POPUP ERREUR CHARIOT ROUGE AGRANDI ---
   void _afficherErreurChariotSequence(int attendu, int scanne) {
     showDialog(
       context: context,
@@ -558,7 +556,7 @@ class _ScanScreenState extends State<ScanScreen> {
       String termine = _chariotActuel != null ? _chariotActuel!["code_base"] : "?";
       setState(() {
         _dernierChariotValideNum = termine;
-        _chariotConformeGrandCadre = true; // Déclenche l'affichage du GRAND CADRE VERT
+        _chariotConformeGrandCadre = true;
         _labelEtat = _switchQuicktronActif
             ? "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s..."
             : "Chariot $termine terminé et conforme.\nSwitch Quicktron désactivé.";
@@ -712,8 +710,6 @@ class _ScanScreenState extends State<ScanScreen> {
               ],
             ),
           ),
-
-          // --- ZONE PRINCIPALE : CADRE VERT GRAND FORMAT OU LISTE DES SIÈGES ---
           Expanded(
             child: _chariotConformeGrandCadre
                 ? Padding(
@@ -757,7 +753,6 @@ class _ScanScreenState extends State<ScanScreen> {
                     children: ["1", "2", "3", "4"].map((p) => _buildLignePosition(p)).toList(),
                   ),
           ),
-
           Container(
             height: 80,
             alignment: Alignment.center,
@@ -883,7 +878,9 @@ class HistoryScreen extends StatefulWidget {
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-List> _controles = [];
+class _HistoryScreenState extends State<HistoryScreen> {
+  List> _controles = [];
+
   @override
   void initState() {
     super.initState();
@@ -1111,7 +1108,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   final TextEditingController _refCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
 
-List> _correspondances = [];
+  List> _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
@@ -1124,7 +1121,7 @@ List> _correspondances = [];
   }
 
   void _rafraichirCorrespondances() async {
-List> list = await DatabaseHelper.listerCorrespondances();
+    List> list = await DatabaseHelper.listerCorrespondances();
     setState(() => _correspondances = list);
   }
 
@@ -1155,154 +1152,4 @@ List> list = await DatabaseHelper.listerCorrespondances();
                     decoration: const InputDecoration(labelText: "Mot de passe"),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "Table de correspondance Globale :",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _refCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "REFERENCE (Chariot)",
-                            hintText: "Ex: 98869740ZM",
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _codeCtrl,
-                          decoration: const InputDecoration(
-                            labelText: "CODE (Siège)",
-                            hintText: "Ex: BWAD6790000",
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        onPressed: _ajouterOuModifier,
-                        child: const Text("Ajouter / Maj"),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 15),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _correspondances.length,
-                      itemBuilder: (ctx, index) {
-                        final c = _correspondances[index];
-                        return ListTile(
-                          title: Text("${c['reference']} ➔ ${c['code']}"),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: ROUGE_ERR),
-                            onPressed: () async {
-                              await DatabaseHelper.supprimerCorrespondance(c['id']);
-                              _rafraichirCorrespondances();
-                            },
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-// ----------------------------------------------------------------------
-// ÉCRAN CONFIGURATION DES TABLES DE MONTAGE
-// ----------------------------------------------------------------------
-class ConfigTableScreen extends StatefulWidget {
-  const ConfigTableScreen({super.key});
-
-  @override
-  State<ConfigTableScreen> createState() => _ConfigTableScreenState();
-}
-
-class _ConfigTableScreenState extends State<ConfigTableScreen> {
-  final TextEditingController _tableCtrl = TextEditingController();
-  List<String> _tables = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _chargerTables();
-  }
-
-  void _chargerTables() async {
-    final list = await DatabaseHelper.listerTables();
-    setState(() => _tables = list);
-  }
-
-  void _ajouterTable() async {
-    if (_tableCtrl.text.isNotEmpty) {
-      await DatabaseHelper.ajouterTable(_tableCtrl.text);
-      _tableCtrl.clear();
-      _chargerTables();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("CODE TABLE")),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _tableCtrl,
-                    decoration: const InputDecoration(
-                      labelText: "Numéro de table",
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _ajouterTable,
-                  child: const Text("Ajouter"),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _tables.length,
-                itemBuilder: (ctx, i) {
-                  final t = _tables[i];
-                  return ListTile(
-                    title: Text("Table $t"),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: ROUGE_ERR),
-                      onPressed: () async {
-                        await DatabaseHelper.supprimerTable(t);
-                        _chargerTables();
-                      },
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+                  ElevatedButton(onPressed: _verifier, child: const Text("Dé
