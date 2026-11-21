@@ -14,6 +14,7 @@ const List<String> ORDRE_INSTALLATION = ["4", "3", "2", "1"];
 
 const String MDP_PARAM_SIEGES = "123456";
 const String MDP_CORRECTION_CHARIOT = "";
+const String MDP_SWITCH_QUICKTRON = "1234";
 
 const Color NAVY = Color(0xFF0F2159);
 const Color BLEU_LABEL = Color(0xFF0D3380);
@@ -135,7 +136,7 @@ class DatabaseHelper {
     await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<List<Map<String, dynamic>>> listerCorrespondances() async {
+  static Future<List>> listerCorrespondances() async {
     final db = await database;
     return await db.query('correspondances_globales', orderBy: 'id DESC');
   }
@@ -183,7 +184,7 @@ class DatabaseHelper {
     ''', [codeBase]);
   }
 
-    // --- Contrôles ---
+  // --- Contrôles ---
   static Future<void> enregistrerControle({
     String? tableNumero,
     required String chariotType,
@@ -210,11 +211,12 @@ class DatabaseHelper {
     });
   }
 
-  static Future<List<Map<String, dynamic>>> listerControles({int limit = 500}) async {
+  static Future<List>> listerControles({int limit = 500}) async {
     final db = await database;
     return await db.query('controles', orderBy: 'id DESC', limit: limit);
   }
 }
+
 // ----------------------------------------------------------------------
 // MAIN APP
 // ----------------------------------------------------------------------
@@ -268,6 +270,7 @@ class _ScanScreenState extends State<ScanScreen> {
   String? _positionCourante;
   bool _chariotConformeGrandCadre = false;
   String _dernierChariotValideNum = "";
+  bool _switchQuicktronActif = true;
 
   Map<String, String> _theoRef = {"1": "", "2": "", "3": "", "4": ""};
   Map<String, String> _reelRef = {"1": "", "2": "", "3": "", "4": ""};
@@ -278,7 +281,7 @@ class _ScanScreenState extends State<ScanScreen> {
       "• Flashez le QR code Fakir\n"
       "• Flashez les sièges";
 
-   @override
+  @override
   void initState() {
     super.initState();
     _resetCases();
@@ -289,7 +292,6 @@ class _ScanScreenState extends State<ScanScreen> {
     // Écouteur pour intercepter la perte de focus et le réattribuer immédiatement
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) {
-        // Petit délai pour laisser les popups/dialogues se fermer proprement
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted && ModalRoute.of(context)?.isCurrent == true) {
             FocusScope.of(context).requestFocus(_focusNode);
@@ -315,6 +317,68 @@ class _ScanScreenState extends State<ScanScreen> {
         FocusScope.of(context).requestFocus(_focusNode);
       }
     });
+  }
+
+  void _ouvrirDialogueSwitchQuicktron() {
+    final TextEditingController pwdCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Switch automatique Quicktron"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _switchQuicktronActif
+                  ? "État actuel : ACTIVÉ (bascule vers Quicktron après 30s)."
+                  : "État actuel : DÉSACTIVÉ (reste sur Conformité).",
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pwdCtrl,
+              autofocus: true,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: "Mot de passe"),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _focusInput();
+            },
+            child: const Text("Annuler"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (pwdCtrl.text == MDP_SWITCH_QUICKTRON) {
+                setState(() {
+                  _switchQuicktronActif = !_switchQuicktronActif;
+                });
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _switchQuicktronActif
+                          ? "Switch Quicktron ACTIVÉ."
+                          : "Switch Quicktron DÉSACTIVÉ.",
+                    ),
+                  ),
+                );
+                _focusInput();
+              } else {
+                pwdCtrl.clear();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Mot de passe incorrect.")),
+                );
+              }
+            },
+            child: Text(_switchQuicktronActif ? "Désactiver" : "Activer"),
+          ),
+        ],
+      ),
+    );
   }
 
   void _afficherErreur(String message) {
@@ -491,18 +555,29 @@ class _ScanScreenState extends State<ScanScreen> {
     _avancerPosition();
   }
 
-void _avancerPosition() async {
+  void _avancerPosition() async {
     if (_filePositions.isEmpty) {
       String termine = _chariotActuel != null ? _chariotActuel!["code_base"] : "?";
       setState(() {
         _dernierChariotValideNum = termine;
         _chariotConformeGrandCadre = true; // Déclenche l'affichage du GRAND CADRE VERT
-        _labelEtat = "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s...";
+        _labelEtat = _switchQuicktronActif
+            ? "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s..."
+            : "Chariot $termine terminé et conforme.\nSwitch Quicktron désactivé.";
         _chariotActuel = null;
         _positionCourante = null;
       });
 
       await Future.delayed(const Duration(seconds: 30));
+
+      if (!mounted || !_switchQuicktronActif) {
+        if (mounted && !_switchQuicktronActif) {
+          setState(() {
+            _labelEtat = "Chariot $termine conforme (Switch Quicktron désactivé).\nScannez le chariot suivant.";
+          });
+        }
+        return;
+      }
 
       final AndroidIntent intent = AndroidIntent(
         action: 'action_main',
@@ -527,6 +602,7 @@ void _avancerPosition() async {
       _labelEtat = "Position $_positionCourante — Réf. attendue : $refAttendue\nScannez le siège.";
     });
   }
+
   Future<void> _traiterScanSiege(String codeSiege) async {
     if (_chariotActuel == null || _positionCourante == null) {
       _afficherErreur("Scan non autorisé. Scannez d'abord un chariot valide.");
@@ -607,13 +683,21 @@ void _avancerPosition() async {
           PopupMenuButton<String>(
             icon: const Icon(Icons.menu, color: Colors.white),
             onSelected: (val) {
-              Navigator.pushNamed(context, val).then((_) => _focusInput());
+              if (val == 'switch_quicktron') {
+                _ouvrirDialogueSwitchQuicktron();
+              } else {
+                Navigator.pushNamed(context, val).then((_) => _focusInput());
+              }
             },
             itemBuilder: (context) => [
               const PopupMenuItem(value: '/historique', child: Text('Historique')),
               const PopupMenuItem(value: '/config_chariot', child: Text('Correction N° Chariot')),
               const PopupMenuItem(value: '/config_sieges', child: Text('Code Siège')),
               const PopupMenuItem(value: '/config_table', child: Text('CODE TABLE')),
+              PopupMenuItem(
+                value: 'switch_quicktron',
+                child: Text(_switchQuicktronActif ? 'Switch Quicktron : ON' : 'Switch Quicktron : OFF'),
+              ),
             ],
           )
         ],
@@ -630,7 +714,7 @@ void _avancerPosition() async {
               ],
             ),
           ),
-          
+
           // --- ZONE PRINCIPALE : CADRE VERT GRAND FORMAT OU LISTE DES SIÈGES ---
           Expanded(
             child: _chariotConformeGrandCadre
@@ -802,7 +886,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  List<Map<String, dynamic>> _controles = [];
+  List> _controles = [];
 
   @override
   void initState() {
@@ -1031,7 +1115,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   final TextEditingController _refCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
 
-  List<Map<String, dynamic>> _correspondances = [];
+  List> _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
@@ -1044,7 +1128,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   }
 
   void _rafraichirCorrespondances() async {
-    List<Map<String, dynamic>> list = await DatabaseHelper.listerCorrespondances();
+    List> list = await DatabaseHelper.listerCorrespondances();
     setState(() => _correspondances = list);
   }
 
