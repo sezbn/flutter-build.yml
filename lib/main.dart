@@ -27,7 +27,7 @@ const Color BG_ENCOURS = Color(0xFFFFF0BF);
 const Color BORDER_ENCOURS = Color(0xFFD98C0D);
 
 // ----------------------------------------------------------------------
-// SERVICE BASE DE DONNÉES
+// SERVICE BASE DE DONNEES
 // ----------------------------------------------------------------------
 class DatabaseHelper {
   static Database? _db;
@@ -101,7 +101,11 @@ class DatabaseHelper {
   // --- Tables de Montage ---
   static Future<void> ajouterTable(String numero) async {
     final db = await database;
-    await db.insert('tables_ref', {'numero': numero.trim()}, conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert(
+      'tables_ref',
+      {'numero': numero.trim()},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
   }
 
   static Future<void> supprimerTable(String numero) async {
@@ -168,7 +172,7 @@ class DatabaseHelper {
     return bestRef;
   }
 
-  // --- Séquence Chariot ---
+  // --- Sequence Chariot ---
   static Future<int?> getDernierCodeBase() async {
     final db = await database;
     final res = await db.query('etat_chariot', where: 'id = 1');
@@ -184,7 +188,7 @@ class DatabaseHelper {
     ''', [codeBase]);
   }
 
-  // --- Contrôles ---
+  // --- Controles ---
   static Future<void> enregistrerControle({
     String? tableNumero,
     required String chariotType,
@@ -231,7 +235,7 @@ class ConformiteApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Conformité Sièges',
+      title: 'Conformite Sieges',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: Colors.white,
@@ -251,7 +255,7 @@ class ConformiteApp extends StatelessWidget {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN PRINCIPAL : SCAN
+// ECRAN PRINCIPAL : SCAN
 // ----------------------------------------------------------------------
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -279,7 +283,7 @@ class _ScanScreenState extends State<ScanScreen> {
 
   String _labelEtat = "• Flashez le QR de la table (facultatif)\n"
       "• Flashez le QR code Fakir\n"
-      "• Flashez les sièges";
+      "• Flashez les sieges";
 
   @override
   void initState() {
@@ -327,8 +331,8 @@ class _ScanScreenState extends State<ScanScreen> {
           children: [
             Text(
               _switchQuicktronActif
-                  ? "État actuel : ACTIVÉ (bascule vers Quicktron après 30s)."
-                  : "État actuel : DÉSACTIVÉ (reste sur Conformité).",
+                  ? "Etat actuel : ACTIVE (bascule vers Quicktron apres 30s)."
+                  : "Etat actuel : DESACTIVE (reste sur Conformite).",
             ),
             const SizedBox(height: 12),
             TextField(
@@ -358,8 +362,8 @@ class _ScanScreenState extends State<ScanScreen> {
                   SnackBar(
                     content: Text(
                       _switchQuicktronActif
-                          ? "Switch Quicktron ACTIVÉ."
-                          : "Switch Quicktron DÉSACTIVÉ.",
+                          ? "Switch Quicktron ACTIVE."
+                          : "Switch Quicktron DESACTIVE.",
                     ),
                   ),
                 );
@@ -371,7 +375,7 @@ class _ScanScreenState extends State<ScanScreen> {
                 );
               }
             },
-            child: Text(_switchQuicktronActif ? "Désactiver" : "Activer"),
+            child: Text(_switchQuicktronActif ? "Desactiver" : "Activer"),
           ),
         ],
       ),
@@ -423,7 +427,7 @@ class _ScanScreenState extends State<ScanScreen> {
               ),
               const SizedBox(height: 20),
               Text(
-                "Attendu : $attendu\nScanné : $scanne",
+                "Attendu : $attendu\nScanne : $scanne",
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: Colors.white,
@@ -483,19 +487,19 @@ class _ScanScreenState extends State<ScanScreen> {
   Future<void> _traiterScanTable(String raw) async {
     bool existe = await DatabaseHelper.tableExiste(raw);
     if (!existe) {
-      _afficherErreur("Table inconnue : $raw\nCréez-la d'abord dans CODE TABLE.");
+      _afficherErreur("Table inconnue : $raw\nCreez-la d'abord dans CODE TABLE.");
       return;
     }
     setState(() {
       _tableCourante = raw;
-      _labelEtat = "Table $raw sélectionnée.\nScannez le chariot pour commencer.";
+      _labelEtat = "Table $raw selectionnee.\nScannez le chariot pour commencer.";
     });
   }
 
   Future<void> _traiterScanChariot(String raw) async {
     List<String> parts = raw.split(';').where((p) => p.isNotEmpty).toList();
     if (parts.length < 4) {
-      _afficherErreur("QR chariot mal formé.");
+      _afficherErreur("QR chariot mal forme.");
       return;
     }
 
@@ -504,7 +508,7 @@ class _ScanScreenState extends State<ScanScreen> {
     String codeBase = parts[2];
 
     if (int.tryParse(codeBase) == null) {
-      _afficherErreur("Numéro de chariot invalide : '$codeBase'");
+      _afficherErreur("Numero de chariot invalide : '$codeBase'");
       return;
     }
 
@@ -517,7 +521,7 @@ class _ScanScreenState extends State<ScanScreen> {
     }
 
     if (positions.isEmpty) {
-      _afficherErreur("Aucune position de siège trouvée dans le QR chariot.");
+      _afficherErreur("Aucune position de siege trouvee dans le QR chariot.");
       return;
     }
 
@@ -558,8 +562,8 @@ class _ScanScreenState extends State<ScanScreen> {
         _dernierChariotValideNum = termine;
         _chariotConformeGrandCadre = true;
         _labelEtat = _switchQuicktronActif
-            ? "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s..."
-            : "Chariot $termine terminé et conforme.\nSwitch Quicktron désactivé.";
+            ? "Chariot $termine termine et conforme.\nBasculement vers Quicktron dans 30s..."
+            : "Chariot $termine termine et conforme.\nSwitch Quicktron desactive.";
         _chariotActuel = null;
         _positionCourante = null;
       });
@@ -569,7 +573,7 @@ class _ScanScreenState extends State<ScanScreen> {
       if (!mounted || !_switchQuicktronActif) {
         if (mounted && !_switchQuicktronActif) {
           setState(() {
-            _labelEtat = "Chariot $termine conforme (Switch Quicktron désactivé).\nScannez le chariot suivant.";
+            _labelEtat = "Chariot $termine conforme (Switch Quicktron desactive).\nScannez le chariot suivant.";
           });
         }
         return;
@@ -595,13 +599,13 @@ class _ScanScreenState extends State<ScanScreen> {
       String refAttendue = _chariotActuel!["positions"][_positionCourante];
       _bgStatus[_positionCourante!] = BG_ENCOURS;
       _borderStatus[_positionCourante!] = BORDER_ENCOURS;
-      _labelEtat = "Position $_positionCourante — Réf. attendue : $refAttendue\nScannez le siège.";
+      _labelEtat = "Position $_positionCourante — Ref. attendue : $refAttendue\nScannez le siege.";
     });
   }
 
   Future<void> _traiterScanSiege(String codeSiege) async {
     if (_chariotActuel == null || _positionCourante == null) {
-      _afficherErreur("Scan non autorisé. Scannez d'abord un chariot valide.");
+      _afficherErreur("Scan non autorise. Scannez d'abord un chariot valide.");
       return;
     }
 
@@ -631,7 +635,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _borderStatus[pos] = ROUGE_ERR;
       });
 
-      _afficherErreur("Code siège $codeSiege inconnu dans la table de correspondance.");
+      _afficherErreur("Code siege $codeSiege inconnu dans la table de correspondance.");
       return;
     }
 
@@ -654,7 +658,7 @@ class _ScanScreenState extends State<ScanScreen> {
         _borderStatus[pos] = ROUGE_ERR;
       });
 
-      _afficherErreur("NON CONFORME — position $pos\nAttendu : $refAttendue\nScanné  : $refTrouvee ($codeSiege)");
+      _afficherErreur("NON CONFORME — position $pos\nAttendu : $refAttendue\nScanne  : $refTrouvee ($codeSiege)");
       return;
     }
 
@@ -673,7 +677,7 @@ class _ScanScreenState extends State<ScanScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: NAVY,
-        title: const Text("Siège Rang 3", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: const Text("Siege Rang 3", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           PopupMenuButton<String>(
@@ -688,7 +692,7 @@ class _ScanScreenState extends State<ScanScreen> {
             itemBuilder: (context) => [
               const PopupMenuItem(value: '/historique', child: Text('Historique')),
               const PopupMenuItem(value: '/config_chariot', child: Text('Correction N° Chariot')),
-              const PopupMenuItem(value: '/config_sieges', child: Text('Code Siège')),
+              const PopupMenuItem(value: '/config_sieges', child: Text('Code Siege')),
               const PopupMenuItem(value: '/config_table', child: Text('CODE TABLE')),
               PopupMenuItem(
                 value: 'switch_quicktron',
@@ -737,7 +741,7 @@ class _ScanScreenState extends State<ScanScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            "Chariot n° $_dernierChariotValideNum Validé",
+                            "Chariot n° $_dernierChariotValideNum Valide",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 20,
@@ -793,7 +797,7 @@ class _ScanScreenState extends State<ScanScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     onPressed: _resetChariot,
-                    child: const Text("Réinitialiser", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    child: const Text("Reinitialiser", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 )
               ],
@@ -833,7 +837,7 @@ class _ScanScreenState extends State<ScanScreen> {
           Expanded(
             child: Column(
               children: [
-                const Text("Théorique", style: TextStyle(fontSize: 11, color: BLEU_LABEL)),
+                const Text("Theorique", style: TextStyle(fontSize: 11, color: BLEU_LABEL)),
                 Container(
                   height: 38,
                   decoration: BoxDecoration(color: bg, border: Border.all(color: border)),
@@ -852,7 +856,7 @@ class _ScanScreenState extends State<ScanScreen> {
           Expanded(
             child: Column(
               children: [
-                const Text("Réel", style: TextStyle(fontSize: 11, color: BLEU_LABEL)),
+                const Text("Reel", style: TextStyle(fontSize: 11, color: BLEU_LABEL)),
                 Container(
                   height: 38,
                   alignment: Alignment.center,
@@ -869,7 +873,7 @@ class _ScanScreenState extends State<ScanScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN HISTORIQUE ET EXPORT EXCEL (.XLSX)
+// ECRAN HISTORIQUE ET EXPORT EXCEL (.XLSX)
 // ----------------------------------------------------------------------
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -895,7 +899,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _exporterExcel() async {
     if (_controles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Aucun contrôle à exporter.")),
+        const SnackBar(content: Text("Aucun controle a exporter.")),
       );
       return;
     }
@@ -917,9 +921,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
       excel_lib.TextCellValue('Table'),
       excel_lib.TextCellValue('Chariot N°'),
       excel_lib.TextCellValue('Position'),
-      excel_lib.TextCellValue('Réf. Attendue'),
-      excel_lib.TextCellValue('Code Siège Scanné'),
-      excel_lib.TextCellValue('Réf. Trouvée'),
+      excel_lib.TextCellValue('Ref. Attendue'),
+      excel_lib.TextCellValue('Code Siege Scanne'),
+      excel_lib.TextCellValue('Ref. Trouvee'),
       excel_lib.TextCellValue('Conforme'),
     ]);
 
@@ -940,7 +944,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     try {
       Directory? downloadsDir = Directory('/storage/emulated/0/Download');
       if (!await downloadsDir.exists()) {
-        downloadsDir = await Directory('/storage/emulated/0/Téléchargements').create(recursive: true);
+        downloadsDir = await Directory('/storage/emulated/0/Telechargements').create(recursive: true);
       }
 
       String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
@@ -955,7 +959,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("Fichier enregistré sur le CT45 :\nDownload/Export_Controles_$timestamp.xlsx"),
+              content: Text("Fichier enregistre sur le CT45 :\nDownload/Export_Controles_$timestamp.xlsx"),
               duration: const Duration(seconds: 5),
             ),
           );
@@ -985,7 +989,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       body: _controles.isEmpty
-          ? const Center(child: Text("Aucun contrôle enregistré."))
+          ? const Center(child: Text("Aucun controle enregistre."))
           : ListView.builder(
               itemCount: _controles.length,
               itemBuilder: (ctx, i) {
@@ -994,7 +998,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 return Card(
                   child: ListTile(
                     title: Text("[${r['date_scan']}] Table ${r['table_numero'] ?? '-'} | Chariot ${r['code_base']}"),
-                    subtitle: Text("Pos ${r['position']} | Attendu: ${r['reference_attendue']} | Scanné: ${r['reference_trouvee'] ?? r['code_siege']}"),
+                    subtitle: Text("Pos ${r['position']} | Attendu: ${r['reference_attendue']} | Scanne: ${r['reference_trouvee'] ?? r['code_siege']}"),
                     trailing: Text(
                       ok ? "OK" : "NON CONFORME",
                       style: TextStyle(color: ok ? VERT_OK : ROUGE_ERR, fontWeight: FontWeight.bold),
@@ -1008,7 +1012,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CORRECTION CHARIOT
+// ECRAN CORRECTION CHARIOT
 // ----------------------------------------------------------------------
 class ConfigChariotScreen extends StatefulWidget {
   const ConfigChariotScreen({super.key});
@@ -1043,7 +1047,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
       await DatabaseHelper.setDernierCodeBase(int.parse(_seqCtrl.text));
       _seqCtrl.clear();
       _charger();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Séquence mise à jour.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Sequence mise a jour.")));
     }
   }
 
@@ -1056,7 +1060,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
         child: !_deverrouille
             ? Column(
                 children: [
-                  const Text("Accès protégé par mot de passe."),
+                  const Text("Acces protege par mot de passe."),
                   TextField(
                     controller: _pwdCtrl,
                     autofocus: true,
@@ -1064,13 +1068,13 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
                     decoration: const InputDecoration(labelText: "Mot de passe"),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(onPressed: _verifier, child: const Text("Déverrouiller")),
+                  ElevatedButton(onPressed: _verifier, child: const Text("Deverrouiller")),
                 ],
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Dernier numéro de chariot enregistré : ${_dernierCode ?? '—'}", style: const TextStyle(fontSize: 16)),
+                  Text("Dernier numero de chariot enregistre : ${_dernierCode ?? '—'}", style: const TextStyle(fontSize: 16)),
                   const SizedBox(height: 15),
                   Row(
                     children: [
@@ -1093,7 +1097,7 @@ class _ConfigChariotScreenState extends State<ConfigChariotScreen> {
 }
 
 // ----------------------------------------------------------------------
-// ÉCRAN CODE SIÈGE : TABLE DE CORRESPONDANCE GLOBAL (REFERENCE / CODE)
+// ECRAN CODE SIEGE : TABLE DE CORRESPONDANCE GLOBAL (REFERENCE / CODE)
 // ----------------------------------------------------------------------
 class ConfigSiegesScreen extends StatefulWidget {
   const ConfigSiegesScreen({super.key});
@@ -1131,20 +1135,20 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
       _refCtrl.clear();
       _codeCtrl.clear();
       _rafraichirCorrespondances();
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Correspondance enregistrée.")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Correspondance enregistree.")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Code Siège")),
+      appBar: AppBar(title: const Text("Code Siege")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: !_deverrouille
             ? Column(
                 children: [
-                  const Text("Accès protégé par mot de passe."),
+                  const Text("Acces protege par mot de passe."),
                   TextField(
                     controller: _pwdCtrl,
                     autofocus: true,
@@ -1152,4 +1156,154 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
                     decoration: const InputDecoration(labelText: "Mot de passe"),
                   ),
                   const SizedBox(height: 10),
-                  ElevatedButton(onPressed: _verifier, child: const Text("Dé
+                  ElevatedButton(onPressed: _verifier, child: const Text("Deverrouiller")),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Table de correspondance Globale :",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _refCtrl,
+                          decoration: const InputDecoration(
+                            labelText: "REFERENCE (Chariot)",
+                            hintText: "Ex: 98869740ZM",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _codeCtrl,
+                          decoration: const InputDecoration(
+                            labelText: "CODE (Siege)",
+                            hintText: "Ex: BWAD6790000",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: _ajouterOuModifier,
+                        child: const Text("Ajouter / Maj"),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _correspondances.length,
+                      itemBuilder: (ctx, index) {
+                        final c = _correspondances[index];
+                        return ListTile(
+                          title: Text("${c['reference']} -> ${c['code']}"),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: ROUGE_ERR),
+                            onPressed: () async {
+                              await DatabaseHelper.supprimerCorrespondance(c['id']);
+                              _rafraichirCorrespondances();
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// ----------------------------------------------------------------------
+// ECRAN CONFIGURATION DES TABLES DE MONTAGE
+// ----------------------------------------------------------------------
+class ConfigTableScreen extends StatefulWidget {
+  const ConfigTableScreen({super.key});
+
+  @override
+  State<ConfigTableScreen> createState() => _ConfigTableScreenState();
+}
+
+class _ConfigTableScreenState extends State<ConfigTableScreen> {
+  final TextEditingController _tableCtrl = TextEditingController();
+  List<String> _tables = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _chargerTables();
+  }
+
+  void _chargerTables() async {
+    final list = await DatabaseHelper.listerTables();
+    setState(() => _tables = list);
+  }
+
+  void _ajouterTable() async {
+    if (_tableCtrl.text.isNotEmpty) {
+      await DatabaseHelper.ajouterTable(_tableCtrl.text);
+      _tableCtrl.clear();
+      _chargerTables();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("CODE TABLE")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _tableCtrl,
+                    decoration: const InputDecoration(
+                      labelText: "Numero de table",
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _ajouterTable,
+                  child: const Text("Ajouter"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 15),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _tables.length,
+                itemBuilder: (ctx, i) {
+                  final t = _tables[i];
+                  return ListTile(
+                    title: Text("Table $t"),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.delete, color: ROUGE_ERR),
+                      onPressed: () async {
+                        await DatabaseHelper.supprimerTable(t);
+                        _chargerTables();
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
