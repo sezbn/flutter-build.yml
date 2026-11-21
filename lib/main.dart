@@ -139,8 +139,7 @@ class DatabaseHelper {
     final db = await database;
     await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
-
-  static Future<List>> listerCorrespondances() async {
+static Future<List>> listerCorrespondances() async {
     final db = await database;
     return await db.query('correspondances_globales', orderBy: 'id DESC');
   }
@@ -215,7 +214,7 @@ class DatabaseHelper {
     });
   }
 
-  static Future<List>> listerControles({int limit = 500}) async {
+  static Future<> listerControles({int limit = 500}) async {
     final db = await database;
     return await db.query('controles', orderBy: 'id DESC', limit: limit);
   }
@@ -883,7 +882,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  List> _controles = [];
+  _controles = [];
 
   @override
   void initState() {
@@ -1110,9 +1109,9 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   bool _deverrouille = false;
   final TextEditingController _pwdCtrl = TextEditingController();
   final TextEditingController _refCtrl = TextEditingController();
-  final TextEditingController _codeCtrl = TextEditingController();
+  final TextEditing _correspondances = [];Controller _codeCtrl = TextEditingController();
 
-  List> _correspondances = [];
+   _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
@@ -1125,7 +1124,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   }
 
   void _rafraichirCorrespondances() async {
-    List> list = await DatabaseHelper.listerCorrespondances();
+     list = await DatabaseHelper.listerCorrespondances();
     setState(() => _correspondances = list);
   }
 
