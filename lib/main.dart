@@ -135,7 +135,7 @@ class DatabaseHelper {
     await db.delete('correspondances_globales', where: 'id = ?', whereArgs: [id]);
   }
 
-  static Future<List<Map<String, dynamic>>> listerCorrespondances() async {
+  static Future<List>> listerCorrespondances() async {
     final db = await database;
     return await db.query('correspondances_globales', orderBy: 'id DESC');
   }
@@ -183,7 +183,7 @@ class DatabaseHelper {
     ''', [codeBase]);
   }
 
-    // --- Contrôles ---
+  // --- Contrôles ---
   static Future<void> enregistrerControle({
     String? tableNumero,
     required String chariotType,
@@ -210,11 +210,12 @@ class DatabaseHelper {
     });
   }
 
-  static Future<List<Map<String, dynamic>>> listerControles({int limit = 500}) async {
+  static Future<List>> listerControles({int limit = 500}) async {
     final db = await database;
     return await db.query('controles', orderBy: 'id DESC', limit: limit);
   }
 }
+
 // ----------------------------------------------------------------------
 // MAIN APP
 // ----------------------------------------------------------------------
@@ -268,6 +269,8 @@ class _ScanScreenState extends State<ScanScreen> {
   String? _positionCourante;
   bool _chariotConformeGrandCadre = false;
   String _dernierChariotValideNum = "";
+  bool _basculementEnCours = false;
+  int _basculeId = 0;
 
   Map<String, String> _theoRef = {"1": "", "2": "", "3": "", "4": ""};
   Map<String, String> _reelRef = {"1": "", "2": "", "3": "", "4": ""};
@@ -278,7 +281,7 @@ class _ScanScreenState extends State<ScanScreen> {
       "• Flashez le QR code Fakir\n"
       "• Flashez les sièges";
 
-   @override
+  @override
   void initState() {
     super.initState();
     _resetCases();
@@ -393,8 +396,19 @@ class _ScanScreenState extends State<ScanScreen> {
     );
   }
 
-  void _resetChariot() {
+  void _annulerBasculement() {
+    _basculeId++;
     setState(() {
+      _basculementEnCours = false;
+      _labelEtat = "Basculement vers Quicktron annulé.";
+    });
+    _focusInput();
+  }
+
+  void _resetChariot() {
+    _basculeId++;
+    setState(() {
+      _basculementEnCours = false;
       _chariotActuel = null;
       _filePositions = [];
       _positionCourante = null;
@@ -476,7 +490,9 @@ class _ScanScreenState extends State<ScanScreen> {
       "positions": positions
     };
 
+    _basculeId++;
     setState(() {
+      _basculementEnCours = false;
       _chariotConformeGrandCadre = false;
       _chariotActuel = chariot;
       _filePositions = ORDRE_INSTALLATION.where((p) => positions.containsKey(p)).toList();
@@ -491,11 +507,14 @@ class _ScanScreenState extends State<ScanScreen> {
     _avancerPosition();
   }
 
-void _avancerPosition() async {
+  void _avancerPosition() async {
     if (_filePositions.isEmpty) {
       String termine = _chariotActuel != null ? _chariotActuel!["code_base"] : "?";
+      final int monId = ++_basculeId;
       setState(() {
+        _basculementEnCours = true;
         _dernierChariotValideNum = termine;
+        _tableCourante = null;
         _chariotConformeGrandCadre = true; // Déclenche l'affichage du GRAND CADRE VERT
         _labelEtat = "Chariot $termine terminé et conforme.\nBasculement vers Quicktron dans 30s...";
         _chariotActuel = null;
@@ -503,6 +522,10 @@ void _avancerPosition() async {
       });
 
       await Future.delayed(const Duration(seconds: 30));
+
+      // Annulé entre-temps (bouton, réinitialisation ou nouveau chariot) : on ne bascule pas.
+      if (!mounted || monId != _basculeId || !_basculementEnCours) return;
+      setState(() => _basculementEnCours = false);
 
       final AndroidIntent intent = AndroidIntent(
         action: 'action_main',
@@ -527,6 +550,7 @@ void _avancerPosition() async {
       _labelEtat = "Position $_positionCourante — Réf. attendue : $refAttendue\nScannez le siège.";
     });
   }
+
   Future<void> _traiterScanSiege(String codeSiege) async {
     if (_chariotActuel == null || _positionCourante == null) {
       _afficherErreur("Scan non autorisé. Scannez d'abord un chariot valide.");
@@ -630,7 +654,7 @@ void _avancerPosition() async {
               ],
             ),
           ),
-          
+
           // --- ZONE PRINCIPALE : CADRE VERT GRAND FORMAT OU LISTE DES SIÈGES ---
           Expanded(
             child: _chariotConformeGrandCadre
@@ -666,6 +690,19 @@ void _avancerPosition() async {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
+                          if (_basculementEnCours) ...[
+                            const SizedBox(height: 24),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: ROUGE_ERR,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                              ),
+                              onPressed: _annulerBasculement,
+                              icon: const Icon(Icons.cancel),
+                              label: const Text("ANNULER LE BASCULEMENT", style: TextStyle(fontWeight: FontWeight.bold)),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -802,7 +839,7 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  List<Map<String, dynamic>> _controles = [];
+  List> _controles = [];
 
   @override
   void initState() {
@@ -1031,7 +1068,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   final TextEditingController _refCtrl = TextEditingController();
   final TextEditingController _codeCtrl = TextEditingController();
 
-  List<Map<String, dynamic>> _correspondances = [];
+  List> _correspondances = [];
 
   void _verifier() {
     if (_pwdCtrl.text == MDP_PARAM_SIEGES) {
@@ -1044,7 +1081,7 @@ class _ConfigSiegesScreenState extends State<ConfigSiegesScreen> {
   }
 
   void _rafraichirCorrespondances() async {
-    List<Map<String, dynamic>> list = await DatabaseHelper.listerCorrespondances();
+    List> list = await DatabaseHelper.listerCorrespondances();
     setState(() => _correspondances = list);
   }
 
